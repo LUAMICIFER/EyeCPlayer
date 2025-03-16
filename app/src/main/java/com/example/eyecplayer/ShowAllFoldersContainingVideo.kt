@@ -1,0 +1,83 @@
+package com.example.eyecplayer
+
+import android.content.Context
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+@Composable
+fun ShowAllFoldersContainingVideo(context: Context){
+    var selectedFolder by remember { mutableStateOf<String?>(null) }
+
+    if (selectedFolder == null) {
+        val folders = remember { mutableStateListOf<String>() }
+
+        LaunchedEffect(Unit) {
+            folders.clear()
+            folders.addAll(getAllFolderContaingVideo(context))
+        }
+
+        Column(Modifier.padding(top = 20.dp)) {
+            Text(text = "Folders", fontSize = 24.sp, modifier = Modifier.padding(bottom = 12.dp))
+
+            LazyColumn(contentPadding = PaddingValues(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(folders) { folder ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth().clip(RoundedCornerShape(4.dp))
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .padding(8.dp).clickable { selectedFolder = folder }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_folder_24),
+                            contentDescription = "seek forward", tint = if(isSystemInDarkTheme()) {
+                                Color.White
+                            }else{Color.Gray}, modifier = Modifier.size(65.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp)) // Spacing between icon and text
+                        Text(text = folder, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    } else {
+        showAllVideoOfFolder(selectedFolder!!, context, onBack = { selectedFolder = null }) // Show videos inside clicked folder
+    }
+}
