@@ -1,6 +1,7 @@
 package com.example.eyecplayer
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,16 +37,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 
 @Composable
-fun ShowAllFoldersContainingVideo(context: Context){
-    var selectedFolder by remember { mutableStateOf<String?>(null) }
-
-    if (selectedFolder == null) {
+fun ShowAllFoldersContainingVideo(navController: NavController){
+    val context = LocalContext.current
         val folders = remember { mutableStateListOf<String>() }
 
         LaunchedEffect(Unit) {
@@ -63,7 +64,7 @@ fun ShowAllFoldersContainingVideo(context: Context){
                         modifier = Modifier
                             .fillMaxWidth().clip(RoundedCornerShape(4.dp))
                             .background(Color.White.copy(alpha = 0.2f))
-                            .padding(8.dp).clickable { selectedFolder = folder }
+                            .padding(8.dp).clickable { navController.navigate(Routes.Videos+"/${(Uri.encode(folder))}") }//If folder contains special characters like spaces, slashes (/), question marks (?), or ampersands (&), they might break the navigation route. Encoding replaces these characters with a safe format.
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.baseline_folder_24),
@@ -77,7 +78,4 @@ fun ShowAllFoldersContainingVideo(context: Context){
                 }
             }
         }
-    } else {
-        showAllVideoOfFolder(selectedFolder!!, context, onBack = { selectedFolder = null }) // Show videos inside clicked folder
-    }
 }

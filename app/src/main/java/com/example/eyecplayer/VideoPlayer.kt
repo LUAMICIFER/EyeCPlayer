@@ -40,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.navigation.NavController
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -58,7 +60,8 @@ import java.util.concurrent.Executors
 
 //@OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayer(source :String, context: Context) {
+fun VideoPlayer(navController: NavController,source :String) {
+    val context = LocalContext.current
     var userDetection by remember { mutableStateOf(false) }
     val exoplayer = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -95,7 +98,7 @@ fun VideoPlayer(source :String, context: Context) {
                 Row(modifier = Modifier.fillMaxWidth()
                     .padding(start = 25.dp, top = 20.dp)
                     .background(Color.Black.copy(alpha = 0.2f)), horizontalArrangement = Arrangement.SpaceEvenly){
-                    IconButton(onClick = { exoplayer.release() }) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             painter = painterResource(id = R.drawable.baseline_arrow_back_ios_new_24),
                             contentDescription = "back",

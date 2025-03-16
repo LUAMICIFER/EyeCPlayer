@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,25 +44,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 
 @Composable
-fun showAllVideoOfFolder(selectedFolder: String ,context: Context,onBack : () -> Unit){
+fun showAllVideoOfFolder(navController: NavController,selectedFolder: String){
+    val context = LocalContext.current
     val mediaFiles = remember { mutableStateListOf<MediaFile>() }
-    var selectedVideoUri by remember { mutableStateOf<Uri?>(null) }
-    var sorter by remember { mutableStateOf(0) }
+//    var selectedVideoUri by remember { mutableStateOf<Uri?>(null) }
+    var sorter by remember { mutableIntStateOf(0) }
     LaunchedEffect(sorter) {
         mediaFiles.clear() // Clear previous list
         mediaFiles.addAll(getAllVideos(selectedFolder,context,sorter)) // Corrected function call
     }
 
-        if (selectedVideoUri == null) {
             Column(Modifier.padding(16.dp)){
             Row(Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                IconButton(onClick = { onBack() }) {
+                IconButton(onClick = {navController.popBackStack()}) {
                     Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
                 }
                 Text(text = selectedFolder, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -82,15 +85,11 @@ fun showAllVideoOfFolder(selectedFolder: String ,context: Context,onBack : () ->
             items(mediaFiles.size) { index ->
                 val mediaFile = mediaFiles[index]
                 VideoItem(mediaFile, context) { uri ->
-                    selectedVideoUri = uri // Set the selected video URI
+                    navController.navigate(Routes.player + "/${Uri.encode(uri.toString())}") //Ensures that characters like /, ?, &, and = are safely encoded.
+                    //Prevents crashes or incorrect navigation due to malformed URLs.
                 }
             }
         }
-        }
-
-        }
-        else{
-            VideoPlayer(source = selectedVideoUri!!.toString(), context = context) // Show video player
         }
 }
 
