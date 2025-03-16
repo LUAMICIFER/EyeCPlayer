@@ -77,6 +77,4 @@ dependencies {
     implementation ("com.google.mlkit:face-detection:16.1.7") // Face Detection kit
     val nav_version = "2.8.9"
     implementation("androidx.navigation:navigation-compose:$nav_version")
-    implementation("androidx.compose.animation:animation-graphics:1.7.8")
-
 }

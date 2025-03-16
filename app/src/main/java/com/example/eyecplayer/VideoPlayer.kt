@@ -1,6 +1,11 @@
 package com.example.eyecplayer
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import android.media.AudioManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -14,15 +19,19 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
@@ -38,7 +47,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -57,27 +65,44 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.max
 
 //@OptIn(UnstableApi::class)
+@SuppressLint("DefaultLocale")
 @Composable
-fun VideoPlayer(navController: NavController,source :String) {
+fun VideoPlayer(navController: NavController, source: String) {
     val context = LocalContext.current
     var userDetection by remember { mutableStateOf(false) }
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    var currentVolume by remember { mutableStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) }
+
     val exoplayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            val uri = Uri.parse(source)  // ⏩ Set forward to 15 seconds
+            val uri = Uri.parse(source)
             setMediaItem(MediaItem.fromUri(uri))
             prepare()
             playWhenReady = true
         }
     }
-    var controlvisiblity by remember { mutableStateOf(false) }
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .clickable(onClick = { controlvisiblity = !controlvisiblity },
-            indication = null,  // these two lines ke make disable click response
-            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() })
-    ){
+
+    var controlVisibility by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -87,44 +112,119 @@ fun VideoPlayer(navController: NavController,source :String) {
             },
             modifier = Modifier.fillMaxSize()
         )
-        if(controlvisiblity) {
-            if(exoplayer.isPlaying){
+
+        Row(Modifier.fillMaxSize()) {
+            // Left Side: Seek Backward on Double Tap
+            Column(
+                Modifier
+                    .fillMaxHeight()
+                    .weight(1f)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { controlVisibility = !controlVisibility },
+                            onDoubleTap = { exoplayer.seekTo(exoplayer.currentPosition - 10000) }
+                        )
+                    }
+
+            ) { /* Empty for gesture detection */
+
+            }
+
+            // Right Side: Seek Forward + Adjust Volume on Vertical Drag
+            Column(
+                Modifier
+                    .fillMaxHeight()
+                    .weight(1f)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { controlVisibility = !controlVisibility },
+                            onDoubleTap = { exoplayer.seekTo(exoplayer.currentPosition + 10000) }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures { _, dragAmount ->
+                            val stepSize = 1  // Adjust volume step
+                            val threshold = 10f // Minimum drag threshold to register change
+
+                            if (dragAmount > threshold) {
+                                // Swipe Down (Decrease Volume)
+                                val newVolume = (currentVolume - stepSize).coerceIn(0, maxVolume)
+                                audioManager.setStreamVolume(
+                                    AudioManager.STREAM_MUSIC,
+                                    newVolume,
+                                    AudioManager.FLAG_SHOW_UI
+                                )
+                                currentVolume = newVolume
+                            } else if (dragAmount < -threshold) {
+                                // Swipe Up (Increase Volume)
+                                val newVolume = (currentVolume + stepSize).coerceIn(0, maxVolume)
+                                audioManager.setStreamVolume(
+                                    AudioManager.STREAM_MUSIC,
+                                    newVolume,
+                                    AudioManager.FLAG_SHOW_UI
+                                )
+                                currentVolume = newVolume
+                            }
+                        }
+                    }
+            ) {
+//                Text(text = "Device Volume: $currentVolume / $maxVolume")
+            }
+        }
+
+        // UI Controls Visibility Logic
+        if (controlVisibility) {
+            if (exoplayer.isPlaying) {
                 LaunchedEffect(exoplayer.isPlaying) {
                     delay(30000)
-                    controlvisiblity =false
+                    controlVisibility = false
                 }
             }
+
             Column {
-                Row(modifier = Modifier.fillMaxWidth()
-                    .padding(start = 25.dp, top = 20.dp)
-                    .background(Color.Black.copy(alpha = 0.2f)), horizontalArrangement = Arrangement.SpaceEvenly){
+                // Top Buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 25.dp, top = 20.dp, end = 25.dp)
+                        .background(Color.Black.copy(alpha = 0.2f)),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             painter = painterResource(id = R.drawable.baseline_arrow_back_ios_new_24),
                             contentDescription = "back",
                             tint = Color.White,
-                            modifier = Modifier.size(25.dp)
+                            modifier = Modifier.size(40.dp)
                         )
                     }
-                    IconButton(onClick = { userDetection=!userDetection }) {
+                    IconButton(onClick = { userDetection = !userDetection }) {
                         Icon(
-                            painter = painterResource(id = if (!userDetection) {
+                            painter = painterResource(
+                                id = if (userDetection) {
                                     R.drawable.baseline_visibility_24
                                 } else {
                                     R.drawable.baseline_visibility_off_24
-                                }), contentDescription = "User Face Detection", tint = Color.White, modifier = Modifier.size(25.dp))
+                                }
+                            ),
+                            contentDescription = "User Face Detection",
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
                     }
-                    if(userDetection && exoplayer.isPlaying){
+                    if (userDetection && exoplayer.isPlaying) {
                         CameraAnalysis(context, exoplayer)
                     }
                 }
-                Spacer(Modifier.weight(8f))
+
+                // Bottom Controls (Play/Pause, Seek)
+                Spacer(Modifier.weight(1f))
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.2f))
-                        .padding(50.dp)
-                        .weight(2f),
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .padding(20.dp)
+                        .wrapContentHeight(),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     var isPlay by remember { mutableStateOf(exoplayer.isPlaying) }
@@ -133,7 +233,7 @@ fun VideoPlayer(navController: NavController,source :String) {
                             painter = painterResource(id = R.drawable.baseline_fast_rewind_24),
                             contentDescription = "seek forward",
                             tint = Color.White,
-                            modifier = Modifier.size(25.dp)
+                            modifier = Modifier.size(40.dp)
                         )
                     }
                     IconButton(onClick = {
@@ -154,7 +254,7 @@ fun VideoPlayer(navController: NavController,source :String) {
                             ),
                             contentDescription = "seek forward",
                             tint = Color.White,
-                            modifier = Modifier.size(25.dp)
+                            modifier = Modifier.size(40.dp)
                         )
                     }
                     IconButton(onClick = { exoplayer.seekTo(exoplayer.currentPosition + 10000) }) {
@@ -162,22 +262,43 @@ fun VideoPlayer(navController: NavController,source :String) {
                             painter = painterResource(id = R.drawable.baseline_fast_forward_24),
                             contentDescription = "rewind",
                             tint = Color.White,
-                            modifier = Modifier.size(25.dp)
+                            modifier = Modifier.size(40.dp)
                         )
                     }
+                    val activity = (context as? Activity)
+
+                    val config = LocalConfiguration.current
+                    if (config.orientation == Configuration.ORIENTATION_PORTRAIT) {
+                        IconButton(onClick = {
+                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_screen_rotation_24),tint =Color.White,
+                                contentDescription = "Rotate Screen"
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_screen_rotation_24), tint = Color.White,
+                                contentDescription = "Rotate Screen"
+                            )
+                        }
+                    }
+
                 }
             }
         }
 
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            exoplayer.release() // Release player when the Composable is removed
+        DisposableEffect(Unit) {
+            onDispose {
+                exoplayer.release()
+            }
         }
     }
 }
-
 
 @Composable
 fun CameraAnalysis(context: Context,exoPlayer: ExoPlayer) {
@@ -193,9 +314,6 @@ fun CameraAnalysis(context: Context,exoPlayer: ExoPlayer) {
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-
-                // Image Analysis for Face Detection
-
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
@@ -247,7 +365,7 @@ private fun processImageProxy(imageProxy: ImageProxy,context: Context, exoPlayer
 
 //                    Log.d("FaceDetection", "Left Eye: $leftEyeOpenProb, Right Eye: $rightEyeOpenProb")
 
-                    if (leftEyeOpenProb < 0.5 && rightEyeOpenProb < 0.5) {
+                    if (leftEyeOpenProb < 0.3 && rightEyeOpenProb < 0.3) {
                         exoPlayer.pause()
                         Toast.makeText(context, "hello dono ankhe band hai ya dur ho", Toast.LENGTH_SHORT).show()
                     }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import android.net.Uri
 import android.provider.Settings
+import android.view.View
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -40,6 +41,8 @@ import kotlin.time.Duration
 val time = 1500 // for the animation of navigation
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -48,7 +51,7 @@ class MainActivity : ComponentActivity() {
                     val uri = intent?.data
                     if (uri != null) {
                         val navController = rememberNavController()
-                        NavHost(navController = navController, startDestination = Routes.player + "/{videoUri}") {
+                        NavHost(navController = navController, startDestination = Routes.player + "/${(Uri.encode(uri.toString()))}") {
                             composable(Routes.player + "/{videoUri}") { backStackEntry ->
                                 val videoUri = backStackEntry.arguments?.getString("videoUri")
                                 VideoPlayer(navController, videoUri ?: "/")
