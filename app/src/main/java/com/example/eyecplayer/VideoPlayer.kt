@@ -7,8 +7,11 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -73,12 +76,20 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.max
+import androidx.media3.common.C
+import java.time.Duration
+import java.time.LocalTime
 
 //@OptIn(UnstableApi::class)
+@kotlin.OptIn(ExperimentalComposeUiApi::class)
+@RequiresApi(Build.VERSION_CODES.S)
 @SuppressLint("DefaultLocale")
 @Composable
 fun VideoPlayer(navController: NavController, source: String) {
@@ -87,16 +98,27 @@ fun VideoPlayer(navController: NavController, source: String) {
     val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
     var currentVolume by remember { mutableStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) }
-
+    var speed by remember { mutableStateOf(1f) }
     val exoplayer = remember {
         ExoPlayer.Builder(context).build().apply {
             val uri = Uri.parse(source)
+            setWakeMode(C.WAKE_MODE_LOCAL) //optional
             setMediaItem(MediaItem.fromUri(uri))
             prepare()
             playWhenReady = true
         }
     }
+    //for the progress bar it is updating it every half second
+    var progress by remember { mutableStateOf(0f) }
+    var duration by remember { mutableStateOf(1f) }
 
+    LaunchedEffect(exoplayer) {
+        while (true) {
+            progress = exoplayer.currentPosition.toFloat()
+            duration = exoplayer.duration.toFloat().coerceAtLeast(1f)
+            delay(500) // Update every 500ms
+        }
+    }
     var controlVisibility by remember { mutableStateOf(false) }
 
     Box(
@@ -122,7 +144,15 @@ fun VideoPlayer(navController: NavController, source: String) {
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = { controlVisibility = !controlVisibility },
-                            onDoubleTap = { exoplayer.seekTo(exoplayer.currentPosition - 10000) }
+                            onDoubleTap = { exoplayer.seekTo(exoplayer.currentPosition - 10000) },
+//                            onLongPress = {exoplayer.setPlaybackSpeed(2f)}
+                            onPress = {
+                                speed = 2f
+                                exoplayer.setPlaybackSpeed(speed)  // Increase speed on touch
+                                tryAwaitRelease() // Wait until the finger is lifted
+                                speed = 1f
+                                exoplayer.setPlaybackSpeed(speed)  // Reset speed on release
+                            }
                         )
                     }
 
@@ -130,7 +160,7 @@ fun VideoPlayer(navController: NavController, source: String) {
 
             }
 
-            // Right Side: Seek Forward + Adjust Volume on Vertical Drag
+            // Right Side: Seek Forward + Adjust Volume on Vertical Drag + incresed speed to 2x for the long press
             Column(
                 Modifier
                     .fillMaxHeight()
@@ -138,7 +168,14 @@ fun VideoPlayer(navController: NavController, source: String) {
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = { controlVisibility = !controlVisibility },
-                            onDoubleTap = { exoplayer.seekTo(exoplayer.currentPosition + 10000) }
+                            onDoubleTap = { exoplayer.seekTo(exoplayer.currentPosition + 10000) },
+                            onPress = {
+                                speed = 2f
+                                exoplayer.setPlaybackSpeed(speed)  // Increase speed on touch
+                                tryAwaitRelease() // Wait until the finger is lifted
+                                speed = 1f
+                                exoplayer.setPlaybackSpeed(speed)  // Reset speed on release
+                            }
                         )
                     }
                     .pointerInput(Unit) {
@@ -167,6 +204,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                             }
                         }
                     }
+
             ) {
 //                Text(text = "Device Volume: $currentVolume / $maxVolume")
             }
@@ -218,76 +256,143 @@ fun VideoPlayer(navController: NavController, source: String) {
                 }
 
                 // Bottom Controls (Play/Pause, Seek)
+
                 Spacer(Modifier.weight(1f))
-                Row(
+                Column(
                     Modifier
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.4f))
-                        .padding(20.dp)
-                        .wrapContentHeight(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    var isPlay by remember { mutableStateOf(exoplayer.isPlaying) }
-                    IconButton(onClick = { exoplayer.seekTo(exoplayer.currentPosition - 10000) }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_fast_rewind_24),
-                            contentDescription = "seek forward",
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                    IconButton(onClick = {
-                        if (isPlay) {
-                            exoplayer.pause()
-                        } else {
-                            exoplayer.play()
-                        }
-                        isPlay = exoplayer.isPlaying
-                    }) {
-                        Icon(
-                            painter = painterResource(
-                                id = if (isPlay) {
-                                    R.drawable.baseline_pause_24
-                                } else {
-                                    R.drawable.baseline_play_arrow_24
+                        .padding(4.dp)
+                        .wrapContentHeight()
+                    , horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                    Slider(
+                        value = progress / duration,
+                        onValueChange = { newValue ->
+                            exoplayer.seekTo((newValue * duration).toLong())
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val activity = (context as? Activity)
+
+                        val config = LocalConfiguration.current
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ){
+                            if (config.orientation == Configuration.ORIENTATION_PORTRAIT) {
+                                IconButton(onClick = {
+                                    activity?.requestedOrientation =
+                                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.baseline_screen_rotation_24),
+                                        tint = Color.White,
+                                        contentDescription = "Rotate Screen"
+                                    )
+//                                Text("Potrait",color = Color.White)
                                 }
-                            ),
-                            contentDescription = "seek forward",
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                    IconButton(onClick = { exoplayer.seekTo(exoplayer.currentPosition + 10000) }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_fast_forward_24),
-                            contentDescription = "rewind",
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                    val activity = (context as? Activity)
+                                Text("Potrait",color = Color.White)
 
-                    val config = LocalConfiguration.current
-                    if (config.orientation == Configuration.ORIENTATION_PORTRAIT) {
-                        IconButton(onClick = {
-                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_screen_rotation_24),tint =Color.White,
-                                contentDescription = "Rotate Screen"
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = {
-                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_screen_rotation_24), tint = Color.White,
-                                contentDescription = "Rotate Screen"
-                            )
-                        }
-                    }
+                            } else {
+                                IconButton(onClick = {
+                                    activity?.requestedOrientation =
+                                        ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.baseline_screen_rotation_24),
+                                        tint = Color.White,
+                                        contentDescription = "Rotate Screen"
+                                    )
 
+
+                                }
+                            }
+                                Text("Landscape",color = Color.White)
+
+                        }
+                        var isPlay by remember { mutableStateOf(exoplayer.isPlaying) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { exoplayer.seekTo(exoplayer.currentPosition - 10000) }) {
+
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_fast_rewind_24),
+                                    contentDescription = "rewind",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
+
+                            }
+                            Text("Backward", color = Color.White)
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ){
+                            IconButton(onClick = {
+                                if (isPlay) {
+                                    exoplayer.pause()
+                                } else {
+                                    exoplayer.play()
+                                }
+                                isPlay = exoplayer.isPlaying
+                            }) {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (isPlay) {
+                                            R.drawable.baseline_pause_24
+                                        } else {
+                                            R.drawable.baseline_play_arrow_24
+                                        }
+                                    ),
+                                    contentDescription = "seek forward",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
+
+                            }
+                            Text(text = "play/pause", color = Color.White)
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ){
+                            IconButton(onClick = { exoplayer.seekTo(exoplayer.currentPosition + 10000) }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_fast_forward_24),
+                                    contentDescription = "forward",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                            Text("forward", color = Color.White)
+                        }
+
+
+
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ){
+                            IconButton(onClick = {
+                                speed = if (speed >= 2f) 0.5f else (speed + 0.5f)
+                                exoplayer.setPlaybackSpeed(speed)
+                            }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_speed_24),
+                                    contentDescription = "speed control",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                            Text("$speed", color = Color.White)
+
+                        }
+
+                        }
+
+                    }
                 }
             }
         }
@@ -298,47 +403,75 @@ fun VideoPlayer(navController: NavController, source: String) {
             }
         }
     }
-}
+
 
 @Composable
-fun CameraAnalysis(context: Context,exoPlayer: ExoPlayer) {
+fun CameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    AndroidView(
-        factory = { ctx ->
-            val previewView = PreviewView(ctx).apply {
-                scaleType = PreviewView.ScaleType.FIT_CENTER
-            }
-            val executor = ContextCompat.getMainExecutor(ctx)
+    // Store the start time in remember
+    val local = remember { mutableStateOf(LocalTime.now()) }
 
-            cameraProviderFuture.addListener({
-                val cameraProvider = cameraProviderFuture.get()
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also {
-                        it.setAnalyzer(
-                            Executors.newSingleThreadExecutor(),
-                            ImageAnalysis.Analyzer { imageProxy ->
+    var duration by remember { mutableStateOf(Duration.ZERO) }
+    val cameraProviderState = remember { mutableStateOf<ProcessCameraProvider?>(null) } //ye state type ka kaam karega aage camera provider ka value ko scope ke bahar use karne ke liye
+    LaunchedEffect(Unit) {
+        while (true) {
+            duration= Duration.between(local.value, LocalTime.now())
+            delay(1000) // Update every second
+        }
+    }
+    // Start analysis only if time exceeds 10 minutes
 
-//                                delay(10000)
-                                processImageProxy(imageProxy,context, exoPlayer)
-                            }
-                        )
+    if (duration.toSeconds() > 10) {
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx).apply {
+                    scaleType = PreviewView.ScaleType.FIT_CENTER
+                }
+                val executor = ContextCompat.getMainExecutor(ctx)
+
+                cameraProviderFuture.addListener({
+                    val cameraProvider = cameraProviderFuture.get()
+                    cameraProviderState.value = cameraProvider
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also {
+                            it.setAnalyzer(
+                                Executors.newSingleThreadExecutor(),
+                                ImageAnalysis.Analyzer { imageProxy ->
+                                    processImageProxy(imageProxy, context, exoPlayer)
+                                }
+                            )
+                        }
+
+                    val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+                    cameraProvider.unbindAll()
+                    val camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
+
+                    // Stop analysis if time exceeds 11 minutes
+                    if (duration.toSeconds() > 15) {
+                        cameraProvider.unbindAll()
+                        local.value = LocalTime.now() // Reset timer
                     }
 
-                val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                }, executor)
 
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
-
-            }, executor)
-
-            previewView
+                previewView
+            }
+        )
+    }
+    LaunchedEffect(duration) {
+        if (duration.toSeconds() > 15) {
+            cameraProviderState.value?.unbindAll() // Unbind camera properly
+            local.value = LocalTime.now() // Reset timer
         }
-    )
+    }
+
 }
+
 
 @OptIn(ExperimentalGetImage::class)
 private fun processImageProxy(imageProxy: ImageProxy,context: Context, exoPlayer: ExoPlayer) {
