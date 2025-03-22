@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "936694196078",
+    "project_id": "eyecplayer",
+    "storage_bucket": "eyecplayer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:936694196078:android:1685caa1a7785c3ea9437f",
+        "android_client_info": {
+          "package_name": "com.example.eyecplayer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSXQlL8c03G0j40koya_JpohfYPwaNgA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
