@@ -8,7 +8,7 @@ import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
-import android.view.MotionEvent
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
@@ -16,13 +16,9 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,21 +30,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -58,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
-import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -68,27 +56,21 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.max
-import androidx.media3.common.C
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import java.time.Duration
 import java.time.LocalTime
 
 //@OptIn(UnstableApi::class)
-@kotlin.OptIn(ExperimentalComposeUiApi::class)
+@OptIn(UnstableApi::class)
 @RequiresApi(Build.VERSION_CODES.S)
 @SuppressLint("DefaultLocale")
 @Composable
@@ -99,15 +81,34 @@ fun VideoPlayer(navController: NavController, source: String) {
     val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
     var currentVolume by remember { mutableStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) }
     var speed by remember { mutableStateOf(1f) }
+    val activity = (context as? Activity) // roation aaur screen on rakhne dono ke kaam aaya hai
+
+    // buffer kitna kb hoga uska hai ye first -> kitne load hone ke baad video start hoga ,second-> ek baar me kitna load karke rakhega ,third-> kitna load hoga to dubara chalu ho jayega video chalna ,fourth->
+    val loadControl = DefaultLoadControl.Builder()
+        .setBufferDurationsMs(15000, 300000, 2000, 5000)
+        .build()
+// using media source is faster than the setMediaItem
+    val uri = Uri.parse(source)
     val exoplayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            val uri = Uri.parse(source)
-            setWakeMode(C.WAKE_MODE_LOCAL) //optional
+        ExoPlayer.Builder(context).setLoadControl(loadControl)
+            .setRenderersFactory(DefaultRenderersFactory(context).setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON))
+            .build().apply {
+
+//            setWakeMode(C.WAKE_MODE_LOCAL) //optional
             setMediaItem(MediaItem.fromUri(uri))
+//            setMediaSource(mediaSource)
             prepare()
             playWhenReady = true
+                addListener(object : Player.Listener {
+                    override fun onPlayerError(error:  androidx.media3.common.PlaybackException) {
+                        super.onPlayerError(error)
+                        Toast.makeText(context, "Playback Error: ${error.message}", Toast.LENGTH_LONG).show()
+                    }
+                })
         }
     }
+    //this will keep the screen on and once the video player is off the screen it will turn off the screen as normal
+
     //for the progress bar it is updating it every half second
     var progress by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(1f) }
@@ -277,7 +278,6 @@ fun VideoPlayer(navController: NavController, source: String) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val activity = (context as? Activity)
 
                         val config = LocalConfiguration.current
                         Column(
@@ -397,12 +397,16 @@ fun VideoPlayer(navController: NavController, source: String) {
             }
         }
 
-        DisposableEffect(Unit) {
-            onDispose {
-                exoplayer.release()
-            }
+    DisposableEffect(Unit) {
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            exoplayer.release()
         }
     }
+
+}
 
 
 @Composable

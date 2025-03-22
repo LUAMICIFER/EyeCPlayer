@@ -68,10 +68,12 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    //for permission handelling
     implementation("com.google.accompanist:accompanist-permissions:0.31.1-alpha")
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
+//    implementation("androidx.media3:media3-exoplayer-ffmpeg:1.1.1")    // for ffmpeg support (mkv )
     implementation("androidx.camera:camera-core:1.3.0")  // Core CameraX functionality
     implementation("androidx.camera:camera-camera2:1.3.0")  // Camera2 support
     implementation("androidx.camera:camera-lifecycle:1.3.0")  // Lifecycle-aware CameraX
