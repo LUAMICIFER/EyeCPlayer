@@ -113,13 +113,7 @@ fun VideoPlayer(navController: NavController, source: String) {
     var progress by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(1f) }
 
-    LaunchedEffect(exoplayer) {
-        while (true) {
-            progress = exoplayer.currentPosition.toFloat()
-            duration = exoplayer.duration.toFloat().coerceAtLeast(1f)
-            delay(500) // Update every 500ms
-        }
-    }
+
     var controlVisibility by remember { mutableStateOf(false) }
 
     Box(
@@ -213,6 +207,13 @@ fun VideoPlayer(navController: NavController, source: String) {
 
         // UI Controls Visibility Logic
         if (controlVisibility) {
+            LaunchedEffect(exoplayer) {
+                while (controlVisibility) {
+                    progress = exoplayer.currentPosition.toFloat()
+                    duration = exoplayer.duration.toFloat().coerceAtLeast(1f)
+                    delay(500) // Update every 500ms
+                }
+            }
             if (exoplayer.isPlaying) {
                 LaunchedEffect(exoplayer.isPlaying) {
                     delay(30000)
