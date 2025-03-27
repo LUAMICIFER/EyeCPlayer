@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,9 +28,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -44,12 +47,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.eyecplayer.ui.theme.DarkGray1
+import com.example.eyecplayer.ui.theme.DarkGray2
+import com.example.eyecplayer.ui.theme.DarkGray3
+import com.example.eyecplayer.ui.theme.LightGray3
+import com.example.eyecplayer.ui.theme.LightGray4
+import com.example.eyecplayer.ui.theme.PrimaryRed
+import com.example.eyecplayer.ui.theme.White
 
 @Composable
 fun showAllVideoOfFolder(navController: NavController,selectedFolder: String){
@@ -62,26 +74,36 @@ fun showAllVideoOfFolder(navController: NavController,selectedFolder: String){
         mediaFiles.addAll(getAllVideos(selectedFolder,context,sorter)) // Corrected function call
     }
 
-            Column(Modifier.padding(16.dp)){
-            Row(Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    Column(
+        Modifier.fillMaxSize()
+            .background(if (isSystemInDarkTheme()) Color.Black else Color.White)
+            .padding(16.dp)){
+            Row(Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceAround) {
                 IconButton(onClick = {navController.popBackStack()}) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back",tint = if(isSystemInDarkTheme()) Color.White else Color.Black , modifier = Modifier.size(24.dp))
                 }
-                Text(text = selectedFolder, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Image(
-
-                    painter = painterResource(id = R.drawable.baseline_sort_24),
-                    contentDescription = "sort Icon",
-                    modifier = Modifier.size(30.dp).clickable { sorter=(sorter+1)%6 }
+                //folder path
+                Text(
+                    text = selectedFolder,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                IconButton(onClick = {sorter = (sorter + 1) % 6}){
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_sort_24),
+                        contentDescription = "sort Icon",
+                        tint = if (isSystemInDarkTheme()) Color.White else Color.Black,
+                        modifier = Modifier
+                            .size(24.dp)
+                    )
+                }
             }
 
-            Text(
-                text = "Videos",
-                fontSize = 24.sp, // Use fontSize instead of size
-                modifier = Modifier.padding(bottom = 12.dp) // Add spacing below title
-            )
-        LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text = "Videos", style = MaterialTheme.typography.displayLarge)
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(mediaFiles.size) { index ->
                 val mediaFile = mediaFiles[index]
                 VideoItem(mediaFile, context) { uri ->
@@ -90,14 +112,22 @@ fun showAllVideoOfFolder(navController: NavController,selectedFolder: String){
                 }
             }
         }
-        }
+    }
 }
 
 @Composable
 fun VideoItem(mediaFile: MediaFile, context: Context,onVideoClick: (Uri) -> Unit){
     Row(
         Modifier
-            .fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.2f))
+            .fillMaxWidth()
+            .graphicsLayer {
+                shadowElevation = 8.dp.toPx()
+                shape = RoundedCornerShape(8.dp)
+            }
+            .clip(RoundedCornerShape(4.dp))
+            .background(
+                color = if (isSystemInDarkTheme()) DarkGray2 else White
+            )
             .clickable { onVideoClick(mediaFile.uri) }) {
         val thumbnail = remember { mutableStateOf<Bitmap?>(null) }
 
@@ -115,10 +145,10 @@ fun VideoItem(mediaFile: MediaFile, context: Context,onVideoClick: (Uri) -> Unit
                 modifier = Modifier.size(80.dp)
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(16.dp))
         Column {
-            Text(text = mediaFile.name)
-            Text(text = durationformat(mediaFile.duration))
+            Text(text = mediaFile.name,style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,color =if (isSystemInDarkTheme()) White else DarkGray1,maxLines= 2,overflow = TextOverflow.Ellipsis)
+            Text(text = durationformat(mediaFile.duration), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color =if (isSystemInDarkTheme()) LightGray3 else DarkGray3)
         }
     }
 }

@@ -80,6 +80,8 @@ dependencies {
     implementation ("com.google.mlkit:face-detection:16.1.7") // Face Detection kit
     val nav_version = "2.8.9"
     implementation("androidx.navigation:navigation-compose:$nav_version")
+    //shimmer effect
+    implementation("com.valentinilk.shimmer:compose-shimmer:1.2.0")
 
     implementation(platform("com.google.firebase:firebase-bom:33.11.0"))
 }

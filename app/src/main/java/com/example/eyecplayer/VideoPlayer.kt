@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -58,7 +59,9 @@ import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,6 +69,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import com.google.mlkit.vision.face.Face
 import java.time.Duration
 import java.time.LocalTime
 
@@ -253,8 +257,12 @@ fun VideoPlayer(navController: NavController, source: String) {
                         )
                     }
                     if (userDetection && exoplayer.isPlaying) {
-                        CameraAnalysis(context, exoplayer)
+//                        FaceDetectionToggle(exoplayer,modifier = Modifier.size(40.dp))
+                        OptimizedCameraAnalysis(context, exoplayer)
+
                     }
+                    //deepseek
+//                    FaceDetectionToggle(exoplayer,modifier = Modifier.size(40.dp))
                 }
 
                 // Bottom Controls (Play/Pause, Seek)
@@ -264,18 +272,20 @@ fun VideoPlayer(navController: NavController, source: String) {
                     Modifier
                         .fillMaxWidth()
                         .background(Color.Black.copy(alpha = 0.4f))
-                        .padding(4.dp)
+//                        .padding(4.dp)
                         .wrapContentHeight()
                     , horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    Slider(
-                        value = progress / duration,
-                        onValueChange = { newValue ->
-                            exoplayer.seekTo((newValue * duration).toLong())
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    )
+                    Row(Modifier.wrapContentWidth(Alignment.CenterHorizontally)){
+                        Text(formatDuration(progress.toLong()))
+                        Slider(modifier = Modifier.weight(1f),
+                            value = progress / duration,
+                            onValueChange = { newValue ->
+                                exoplayer.seekTo((newValue * duration).toLong())
+                            }
+                        )
+                        Text(formatDuration(duration.toLong()))
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -523,4 +533,190 @@ private fun processImageProxy(imageProxy: ImageProxy,context: Context, exoPlayer
         imageProxy.close()
     }
 
+}
+// deepseek logic implementation
+//@Composable
+//fun FaceDetectionToggle(
+//    exoPlayer: ExoPlayer,
+//    modifier: Modifier = Modifier
+//) {
+//    val context = LocalContext.current
+//    var userDetection by rememberSaveable { mutableStateOf(false) }
+//
+//    IconButton(
+//        onClick = { userDetection = !userDetection },
+//        modifier = modifier.size(40.dp)
+//    ) {
+//        Icon(
+//            painter = painterResource(
+//                id = if (userDetection) {
+//                    R.drawable.baseline_visibility_24
+//                } else {
+//                    R.drawable.baseline_visibility_off_24
+//                }
+//            ),
+//            contentDescription = "User Face Detection",
+//            tint = Color.White
+//        )
+//    }
+//
+//    if (userDetection && exoPlayer.isPlaying) {
+//        OptimizedCameraAnalysis(context, exoPlayer)
+//    }
+//}
+
+@Composable
+fun OptimizedCameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+
+    // Detection state management
+    var detectionStartTime by remember { mutableStateOf(LocalTime.now()) }
+    var isDetectionWindowActive by remember { mutableStateOf(false) }
+    var eyesClosedDuration by remember { mutableStateOf(0L) } // in seconds
+
+    // Schedule periodic detection windows
+    LaunchedEffect(Unit) {
+        while (true) {
+            // Wait for 50 seconds (idle period)
+            delay(50_000L)
+
+            // Start 10-second detection window
+            isDetectionWindowActive = true
+            detectionStartTime = LocalTime.now()
+            eyesClosedDuration = 0
+
+            // Run detection for 10 seconds
+            delay(10_000L)
+
+            // End detection window
+            isDetectionWindowActive = false
+
+            // Check if eyes were closed for entire window
+            if (eyesClosedDuration >= 10) {
+                exoPlayer.pause()
+                // Show toast or other notification
+            }
+        }
+    }
+
+    // Camera and analysis lifecycle
+    LaunchedEffect(isDetectionWindowActive) {
+        if (isDetectionWindowActive) {
+            // Start camera only during active detection windows
+            val provider = cameraProviderFuture.get()
+            cameraProvider = provider
+
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also {
+                    it.setAnalyzer(
+                        Executors.newSingleThreadExecutor(),
+                        FaceAnalyzer { face ->
+                            handleFaceDetectionResult(face, exoPlayer, context) {
+                                eyesClosedDuration++ // Increment closed duration
+                            }
+                        }
+                    )
+                }
+            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+            try {
+                provider.unbindAll()
+                provider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    imageAnalysis
+                )
+            } catch (e: Exception) {
+                Log.e("CameraAnalysis", "Failed to bind use cases", e)
+            }
+        } else {
+            // Release camera during idle periods
+            cameraProvider?.unbindAll()
+            cameraProvider = null
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraProvider?.unbindAll()
+        }
+    }
+
+    // Show camera preview only during detection windows
+}
+
+private fun handleFaceDetectionResult(
+    face: Face,
+    exoPlayer: ExoPlayer,
+    context: Context,
+    onEyesClosed: () -> Unit
+) {
+    val leftEyeOpenProb = face.leftEyeOpenProbability ?: 0f
+    val rightEyeOpenProb = face.rightEyeOpenProbability ?: 0f
+    val smileProb = face.smilingProbability ?: 0f
+
+    when {
+        // Both eyes closed
+        leftEyeOpenProb < 0.3 && rightEyeOpenProb < 0.3 -> {
+            exoPlayer.pause()
+            onEyesClosed()
+        }
+        // Smiling detected
+        smileProb > 0.7 -> {
+            exoPlayer.play()
+        }
+        // Eyes open but not smiling - no action
+    }
+}
+
+private class FaceAnalyzer(
+    private val onFaceDetected: (Face) -> Unit
+) : ImageAnalysis.Analyzer {
+    private val detector = FaceDetection.getClient(
+        FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+            .build()
+    )
+
+    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
+    override fun analyze(imageProxy: ImageProxy) {
+        val mediaImage = imageProxy.image
+        if (mediaImage != null) {
+            val image = InputImage.fromMediaImage(
+                mediaImage,
+                imageProxy.imageInfo.rotationDegrees
+            )
+
+            detector.process(image)
+                .addOnSuccessListener { faces ->
+                    if (faces.isNotEmpty()) {
+                        onFaceDetected(faces.first())
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FaceAnalyzer", "Face detection failed", e)
+                }
+                .addOnCompleteListener {
+                    imageProxy.close()
+                }
+        } else {
+            imageProxy.close()
+        }
+    }
+}
+fun formatDuration(milliseconds: Long): String {
+    val seconds = (milliseconds / 1000) % 60
+    val minutes = (milliseconds / (1000 * 60)) % 60
+    val hours = milliseconds / (1000 * 60 * 60)
+
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format("%02d:%02d", minutes, seconds)
+    }
 }

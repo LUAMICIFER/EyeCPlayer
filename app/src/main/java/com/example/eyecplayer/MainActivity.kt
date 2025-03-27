@@ -48,9 +48,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             EyeCPlayerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    val navController = rememberNavController()
                     val uri = intent?.data
                     if (uri != null) {
-                        val navController = rememberNavController()
                         NavHost(navController = navController, startDestination = Routes.player + "/${(Uri.encode(uri.toString()))}") {
                             composable(Routes.player + "/{videoUri}") { backStackEntry ->
                                 val videoUri = backStackEntry.arguments?.getString("videoUri")
@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     } else {
-                        val navController = rememberNavController()
+
 
                         NavHost(navController = navController, startDestination = Routes.permission,
                             enterTransition={
@@ -117,7 +117,9 @@ fun PermissionScreen(navController: NavController) {
 
     LaunchedEffect(multiplePermissionsState.allPermissionsGranted) {
         if (multiplePermissionsState.allPermissionsGranted) {
-            navController.navigate(Routes.Folders)
+            navController.navigate(Routes.Folders){
+                popUpTo(Routes.permission) { inclusive = true } // Avoid back navigation to permission screen
+            }
         }
     }
 
@@ -128,7 +130,8 @@ fun PermissionScreen(navController: NavController) {
     ) {
         when {
             multiplePermissionsState.allPermissionsGranted -> {
-                Text("Permission Granted! Redirecting...")
+//                Text("Permission Granted! Redirecting...")
+                navController.navigate(Routes.Folders){popUpTo(Routes.permission){inclusive = true} }
             }
 
             multiplePermissionsState.permissions.any { it.status.shouldShowRationale } -> {
