@@ -84,4 +84,10 @@ dependencies {
     implementation("com.valentinilk.shimmer:compose-shimmer:1.2.0")
 
     implementation(platform("com.google.firebase:firebase-bom:33.11.0"))
+    //DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.4")
+
+    // coil
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation ("androidx.compose.material3:material3:1.1.1")  // Use latest version
 }

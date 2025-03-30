@@ -23,9 +23,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +54,8 @@ import androidx.navigation.NavController
 import com.example.eyecplayer.ui.theme.*
 import com.valentinilk.shimmer.shimmer
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 //import com.example.eyecplayer.ui.theme.PrimaryDark50
 
 @Composable
@@ -64,80 +70,106 @@ fun ShowAllFoldersContainingVideo(navController: NavController){
         isLoading =false
     }
 
-    Column(
-        Modifier
-            .background(if (isSystemInDarkTheme()) Color.Black else Color.White)
-            .padding(16.dp)) {
-        Text(text = "Folders", style = MaterialTheme.typography.displayLarge)
+//    var isLoading by remember { mutableStateOf(false) } // Simulate loading state
+    var lastVidUri by remember { mutableStateOf<String?>(null) }
 
-        LazyColumn( verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if(isLoading){
-                items(9){
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .shimmer()
-                            .graphicsLayer {
-                                shadowElevation = 8.dp.toPx()
-                                shape = RoundedCornerShape(8.dp)
-                            }
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(if (isSystemInDarkTheme()) DarkGray2 else White)
-                            .padding(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(65.dp)
-                                .background(Color.Gray, shape = RoundedCornerShape(0.dp))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .height(20.dp)
-                                .fillMaxWidth(0.6f)
-                                .background(Color.Gray, shape = RoundedCornerShape(4.dp))
-                        )
-                    }
-                }
+    LaunchedEffect(Unit) {
+        lastVidUri = DataStoreManager.getVideoUri()
+    }
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { navController.navigate(Routes.player + "/${Uri.encode(lastVidUri.toString())}") },
+                containerColor = PrimaryRed50, // Set FAB background color to red
+                contentColor = Color.White // Set content color (applies to text/icons inside)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White // Ensures the arrow is white
+                )
+            }
+        }
+        ,
+        floatingActionButtonPosition = FabPosition.End
+    ) { paddingValues ->
+        Column(
+            Modifier
+                .background(if (isSystemInDarkTheme()) Color.Black else Color.White)
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            Text(text = "Folders", style = MaterialTheme.typography.displayLarge)
 
-            }else {
-                items(folders) { folder ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                shadowElevation = 8.dp.toPx()
-                                shape = RoundedCornerShape(8.dp)
-                            }
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                color = if (isSystemInDarkTheme()) DarkGray2
-                                else White
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isLoading) {
+                    items(9) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shimmer()
+                                .graphicsLayer {
+                                    shadowElevation = 8.dp.toPx()
+                                    shape = RoundedCornerShape(8.dp)
+                                }
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (isSystemInDarkTheme()) DarkGray2 else White)
+                                .padding(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(65.dp)
+                                    .background(Color.Gray, shape = RoundedCornerShape(0.dp))
                             )
-                            .padding(8.dp)
-                            .clickable {
-                                navController.navigate(
-                                    Routes.Videos + "/${
-                                        (Uri.encode(folder))
-                                    }"
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .height(20.dp)
+                                    .fillMaxWidth(0.6f)
+                                    .background(Color.Gray, shape = RoundedCornerShape(4.dp))
+                            )
+                        }
+                    }
+
+                } else {
+                    items(folders) { folder ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    shadowElevation = 8.dp.toPx()
+                                    shape = RoundedCornerShape(8.dp)
+                                }
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(
+                                    color = if (isSystemInDarkTheme()) DarkGray2
+                                    else White
                                 )
-                            }//If folder contains special characters like spaces, slashes (/), question marks (?), or ampersands (&), they might break the navigation route. Encoding replaces these characters with a safe format.
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_folder_24),
-                            contentDescription = "seek forward",
-                            tint = PrimaryRed,
-                            modifier = Modifier.size(65.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp)) // Spacing between icon and text
-                        Text(
-                            text = folder,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSystemInDarkTheme()) White else DarkGray1
-                        )
+                                .padding(8.dp)
+                                .clickable {
+                                    navController.navigate(
+                                        Routes.Videos + "/${
+                                            (Uri.encode(folder))
+                                        }"
+                                    )
+                                }//If folder contains special characters like spaces, slashes (/), question marks (?), or ampersands (&), they might break the navigation route. Encoding replaces these characters with a safe format.
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_folder_24),
+                                contentDescription = "seek forward",
+                                tint = PrimaryRed,
+                                modifier = Modifier.size(65.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp)) // Spacing between icon and text
+                            Text(
+                                text = folder,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSystemInDarkTheme()) White else DarkGray1
+                            )
+                        }
                     }
                 }
             }

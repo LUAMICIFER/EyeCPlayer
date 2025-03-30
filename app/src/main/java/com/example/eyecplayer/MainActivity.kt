@@ -38,7 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.*
 import kotlin.time.Duration
-val time = 300 // for the animation of navigation
+val time = 500 // for the animation of navigation
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             EyeCPlayerTheme {
+                DataStoreManager.init(this)
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val navController = rememberNavController()
                     val uri = intent?.data
@@ -131,7 +132,7 @@ fun PermissionScreen(navController: NavController) {
         when {
             multiplePermissionsState.allPermissionsGranted -> {
 //                Text("Permission Granted! Redirecting...")
-                navController.navigate(Routes.Folders){popUpTo(Routes.permission){inclusive = true} }
+//                navController.navigate(Routes.Folders){popUpTo(Routes.permission){inclusive = true} }
             }
 
             multiplePermissionsState.permissions.any { it.status.shouldShowRationale } -> {

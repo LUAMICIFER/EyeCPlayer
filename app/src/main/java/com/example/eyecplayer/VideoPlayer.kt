@@ -66,9 +66,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.navigation.compose.rememberNavController
+import com.example.eyecplayer.ui.theme.DarkGray3
+import com.example.eyecplayer.ui.theme.DarkGray5
+import com.example.eyecplayer.ui.theme.LightGray3
+import com.example.eyecplayer.ui.theme.LightGray4
+import com.example.eyecplayer.ui.theme.PrimaryRed
+import com.example.eyecplayer.ui.theme.White
 import com.google.mlkit.vision.face.Face
 import java.time.Duration
 import java.time.LocalTime
@@ -79,6 +87,7 @@ import java.time.LocalTime
 @SuppressLint("DefaultLocale")
 @Composable
 fun VideoPlayer(navController: NavController, source: String) {
+
     val context = LocalContext.current
     var userDetection by remember { mutableStateOf(false) }
     val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -111,12 +120,19 @@ fun VideoPlayer(navController: NavController, source: String) {
                 })
         }
     }
-    //this will keep the screen on and once the video player is off the screen it will turn off the screen as normal
+    // Mathing if the uri source is same then only plays the video with the past duration
+    LaunchedEffect(Unit){
+        if (DataStoreManager.getVideoUri() == source) {
+            DataStoreManager.getVideoDuration()?.let { exoplayer.seekTo(it) }
+        }
+    }
+    LaunchedEffect(Unit) {
+        DataStoreManager.saveVideo(source)}
 
     //for the progress bar it is updating it every half second
     var progress by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(1f) }
-
+//    if()
 
     var controlVisibility by remember { mutableStateOf(false) }
 
@@ -215,6 +231,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                 while (controlVisibility) {
                     progress = exoplayer.currentPosition.toFloat()
                     duration = exoplayer.duration.toFloat().coerceAtLeast(1f)
+                    DataStoreManager.saveDurationData(exoplayer.currentPosition.toLong())
                     delay(500) // Update every 500ms
                 }
             }
@@ -231,14 +248,14 @@ fun VideoPlayer(navController: NavController, source: String) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 25.dp, top = 20.dp, end = 25.dp)
-                        .background(Color.Black.copy(alpha = 0.2f)),
+                        .background(Color.Black.copy(alpha = 0f)),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             painter = painterResource(id = R.drawable.baseline_arrow_back_ios_new_24),
                             contentDescription = "back",
-                            tint = Color.White,
+                            tint = LightGray3,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -252,7 +269,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                 }
                             ),
                             contentDescription = "User Face Detection",
-                            tint = Color.White,
+                            tint = LightGray3,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -271,14 +288,21 @@ fun VideoPlayer(navController: NavController, source: String) {
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.4f))
+                        .background(Color.Black.copy(alpha = 0f))
 //                        .padding(4.dp)
                         .wrapContentHeight()
                     , horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    Row(Modifier.wrapContentWidth(Alignment.CenterHorizontally)){
+                    Row(Modifier.wrapContentWidth(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically){
                         Text(formatDuration(progress.toLong()))
-                        Slider(modifier = Modifier.weight(1f),
+                        Slider(modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(0.8f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = PrimaryRed,
+                                activeTrackColor = PrimaryRed,
+                                inactiveTrackColor = LightGray4
+                            ),
                             value = progress / duration,
                             onValueChange = { newValue ->
                                 exoplayer.seekTo((newValue * duration).toLong())
@@ -287,7 +311,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                         Text(formatDuration(duration.toLong()))
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
 
                         val config = LocalConfiguration.current
@@ -301,7 +325,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                 }) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.baseline_screen_rotation_24),
-                                        tint = Color.White,
+                                        tint = LightGray3,
                                         contentDescription = "Rotate Screen"
                                     )
 //                                Text("Potrait",color = Color.White)
@@ -315,7 +339,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                 }) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.baseline_screen_rotation_24),
-                                        tint = Color.White,
+                                        tint = LightGray3,
                                         contentDescription = "Rotate Screen"
                                     )
 
@@ -332,7 +356,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.baseline_fast_rewind_24),
                                     contentDescription = "rewind",
-                                    tint = Color.White,
+                                    tint = LightGray3,
                                     modifier = Modifier.size(40.dp)
                                 )
 
@@ -359,7 +383,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                         }
                                     ),
                                     contentDescription = "seek forward",
-                                    tint = Color.White,
+                                    tint = LightGray3,
                                     modifier = Modifier.size(40.dp)
                                 )
 
@@ -373,7 +397,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.baseline_fast_forward_24),
                                     contentDescription = "forward",
-                                    tint = Color.White,
+                                    tint = LightGray3,
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
@@ -393,7 +417,7 @@ fun VideoPlayer(navController: NavController, source: String) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.baseline_speed_24),
                                     contentDescription = "speed control",
-                                    tint = Color.White,
+                                    tint = LightGray3,
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
@@ -720,3 +744,25 @@ fun formatDuration(milliseconds: Long): String {
         String.format("%02d:%02d", minutes, seconds)
     }
 }
+//@RequiresApi(Build.VERSION_CODES.S)
+//@Preview(showBackground = true)
+//@Composable
+//private fun video() {
+//    Row{
+//        Text(formatDuration(0.toLong()))
+//        Slider(modifier = Modifier
+//            .weight(1f)
+//            .fillMaxWidth(0.8f),
+//            colors = SliderDefaults.colors(
+//                thumbColor = PrimaryRed,
+//                activeTrackColor = PrimaryRed,
+//                inactiveTrackColor = LightGray4
+//            ),
+//            value = 0.3f,
+//            onValueChange = { newValue ->
+////                exoplayer.seekTo((newValue * duration).toLong())
+//            }
+//        )
+//        Text(formatDuration(0.toLong()))
+//    }
+//}
