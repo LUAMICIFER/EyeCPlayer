@@ -1,7 +1,5 @@
 package com.example.eyecplayer.online
 
-import androidx.camera.video.Quality
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,9 +22,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Color.Companion.Black
 import androidx.compose.ui.graphics.Color.Companion.DarkGray
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,7 +41,10 @@ import com.example.eyecplayer.ui.theme.White
 @Composable
 fun MovieCard(imageUrl :String,movieName :String,quality :String,duration :String,year : String,genre :String){
     Box(
-        Modifier.padding(16.dp)
+        Modifier.padding(8.dp).graphicsLayer {
+            shadowElevation = 8.dp.toPx()
+            shape = RoundedCornerShape(8.dp)
+        }
             .clickable { TODO("add navigation route to the movie detail page with the imdbid only") }
             .clip(RoundedCornerShape(8.dp))
             .height(205.dp)
@@ -61,6 +63,7 @@ fun MovieCard(imageUrl :String,movieName :String,quality :String,duration :Strin
             AsyncImage(
                 model = imageUrl,
                 contentDescription = "Movie Thumbnail",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .width(260.dp) // Set width
                     .height(100.dp) // Set height
@@ -76,11 +79,12 @@ fun MovieCard(imageUrl :String,movieName :String,quality :String,duration :Strin
                 }
             }
             Row(Modifier.width(125.dp).height(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
-                Text("${duration}m Left", style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color = if(isSystemInDarkTheme()){ LightGray2 }else{ DarkGray2})
-                Text("•", style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color = DarkGray4)
-                Text(text = year, style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color = if(isSystemInDarkTheme()){ LightGray2 }else{ DarkGray2})
+                Text(text = year.take(4), style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), maxLines = 1, color = if(isSystemInDarkTheme()){ LightGray2 }else{ DarkGray2})
                 Text("•", style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color =  DarkGray4)
                 Text(text = genre, style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color = if(isSystemInDarkTheme()){ LightGray2 }else{ DarkGray2})
+                Text("•", style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color = DarkGray4)
+                Text(duration, style = MaterialTheme.typography.titleSmall.copy(fontSize = 10.sp), color = if(isSystemInDarkTheme()){ LightGray2 }else{ DarkGray2})
+
             }
             Spacer(Modifier.height(4.dp))
             Button(onClick = {},Modifier.width(140.dp),shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(

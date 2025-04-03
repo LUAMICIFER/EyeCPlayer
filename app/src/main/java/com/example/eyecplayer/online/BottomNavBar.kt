@@ -8,6 +8,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemColors
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,7 +50,7 @@ fun BottomNavigationBar(navController: NavController) {
                         contentDescription = screen.route, tint = if(isSystemInDarkTheme()) White else Color.Black
                     )
                 },
-                label = { Text(text = screen.route, style =MaterialTheme.typography.titleSmall) },
+                label = { Text(text = screen.route, style =MaterialTheme.typography.titleSmall, color = if(isSystemInDarkTheme()) White else Color.Black) },
                 selected = currentRoute == screen.route,
                 onClick = {
                     navController.navigate(screen.route) {
@@ -61,7 +63,10 @@ fun BottomNavigationBar(navController: NavController) {
                             saveState = true
                         }
                     }
-                }
+                }, colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = Color.Transparent
+
+                )
             )
         }
     }
@@ -76,9 +81,3 @@ fun getIcon(screen: Screen, isSelected: Boolean): Int {
         Screen.Profile -> if (!isSelected) R.drawable.profile else R.drawable.filledprofile
     }
 }
-//@Preview
-//@Composable
-//private fun helllllo() {
-//    val navController by rememberNavController()
-//    BottomNavigationBar(NavController)
-//}
