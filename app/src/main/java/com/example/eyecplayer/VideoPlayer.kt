@@ -170,6 +170,25 @@ fun VideoPlayer(navController: NavController, source: String) {
                             }
                         )
                     }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures { _, dragAmount ->
+                            val stepSize = 0.3f // speed step per swipe
+                            val threshold = 10f // Minimum drag to register
+
+                            if (dragAmount > threshold) {
+                                // Swipe Down – Decrease Speed
+                                val newSpeed = (speed - stepSize).coerceIn(0.5f, 3.0f)
+                                exoplayer.setPlaybackSpeed(newSpeed)
+                                speed = newSpeed
+                            } else if (dragAmount < -threshold) {
+                                // Swipe Up – Increase Speed
+                                val newSpeed = (speed + stepSize).coerceIn(0.5f, 3.0f)
+                                exoplayer.setPlaybackSpeed(newSpeed)
+                                speed = newSpeed
+                            }
+                        }
+                    }
+
 
             ) { /* Empty for gesture detection */
 
@@ -235,10 +254,16 @@ fun VideoPlayer(navController: NavController, source: String) {
                     delay(500) // Update every 500ms
                 }
             }
-            if (exoplayer.isPlaying) {
-                LaunchedEffect(exoplayer.isPlaying) {
-                    delay(30000)
+            var playStarted by remember { mutableStateOf(false) }
+
+            LaunchedEffect(exoplayer.isPlaying) {
+                if (exoplayer.isPlaying && !playStarted) {
+                    playStarted = true
+                    delay(300000) // 5 mins
                     controlVisibility = false
+                } else if (!exoplayer.isPlaying) {
+                    playStarted = false // Reset when video pauses
+                    controlVisibility = true
                 }
             }
 
@@ -274,12 +299,8 @@ fun VideoPlayer(navController: NavController, source: String) {
                         )
                     }
                     if (userDetection && exoplayer.isPlaying) {
-//                        FaceDetectionToggle(exoplayer,modifier = Modifier.size(40.dp))
-                        OptimizedCameraAnalysis(context, exoplayer)
-
+                        CameraAnalysis(context,exoplayer)
                     }
-                    //deepseek
-//                    FaceDetectionToggle(exoplayer,modifier = Modifier.size(40.dp))
                 }
 
                 // Bottom Controls (Play/Pause, Seek)
@@ -421,8 +442,10 @@ fun VideoPlayer(navController: NavController, source: String) {
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
-                            Text("$speed", color = Color.White)
-
+                            Text(
+                                text = String.format("%.1fX", speed),
+                                color = Color.White
+                            )
                         }
 
                         }
@@ -448,21 +471,34 @@ fun VideoPlayer(navController: NavController, source: String) {
 fun CameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val cameraProviderState = remember { mutableStateOf<ProcessCameraProvider?>(null) }
 
-    // Store the start time in remember
-    val local = remember { mutableStateOf(LocalTime.now()) }
+    var isWindowActive by remember { mutableStateOf(false) }
+    var eyesOpenedAtLeastOnce by remember { mutableStateOf(false) }
 
-    var duration by remember { mutableStateOf(Duration.ZERO) }
-    val cameraProviderState = remember { mutableStateOf<ProcessCameraProvider?>(null) } //ye state type ka kaam karega aage camera provider ka value ko scope ke bahar use karne ke liye
     LaunchedEffect(Unit) {
         while (true) {
-            duration= Duration.between(local.value, LocalTime.now())
-            delay(1000) // Update every second
+            // Start 10s window
+            isWindowActive = true
+            eyesOpenedAtLeastOnce = false
+            delay(10_000)
+
+            // After 10 seconds, decide what to do
+            isWindowActive = false
+            if (!eyesOpenedAtLeastOnce) {
+                exoPlayer.pause()
+                Toast.makeText(context, "Eyes closed for full 10 seconds", Toast.LENGTH_SHORT).show()
+            }
+
+            // Unbind camera
+            cameraProviderState.value?.unbindAll()
+
+            // Sleep for 50 seconds
+            delay(50_000)
         }
     }
-    // Start analysis only if time exceeds 10 minutes
 
-    if (duration.toSeconds() > 10) {
+    if (isWindowActive) {
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx).apply {
@@ -473,6 +509,7 @@ fun CameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
                     cameraProviderState.value = cameraProvider
+
                     val imageAnalysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
@@ -480,7 +517,9 @@ fun CameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
                             it.setAnalyzer(
                                 Executors.newSingleThreadExecutor(),
                                 ImageAnalysis.Analyzer { imageProxy ->
-                                    processImageProxy(imageProxy, context, exoPlayer)
+                                    processImageProxy(imageProxy, context, exoPlayer) { eyeOpen ->
+                                        if (eyeOpen) eyesOpenedAtLeastOnce = true
+                                    }
                                 }
                             )
                         }
@@ -488,13 +527,7 @@ fun CameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
                     val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
                     cameraProvider.unbindAll()
-                    val camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
-
-                    // Stop analysis if time exceeds 11 minutes
-                    if (duration.toSeconds() > 15) {
-                        cameraProvider.unbindAll()
-                        local.value = LocalTime.now() // Reset timer
-                    }
+                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
 
                 }, executor)
 
@@ -502,26 +535,21 @@ fun CameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
             }
         )
     }
-    LaunchedEffect(duration) {
-        if (duration.toSeconds() > 15) {
-            cameraProviderState.value?.unbindAll() // Unbind camera properly
-            local.value = LocalTime.now() // Reset timer
-        }
-    }
-
 }
 
-
 @OptIn(ExperimentalGetImage::class)
-private fun processImageProxy(imageProxy: ImageProxy,context: Context, exoPlayer: ExoPlayer) {
+private fun processImageProxy(
+    imageProxy: ImageProxy,
+    context: Context,
+    exoPlayer: ExoPlayer,
+    onEyeOpen: (Boolean) -> Unit
+) {
     val mediaImage = imageProxy.image
     if (mediaImage != null) {
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-
         val detector = FaceDetection.getClient(
             FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
                 .build()
         )
@@ -530,207 +558,21 @@ private fun processImageProxy(imageProxy: ImageProxy,context: Context, exoPlayer
             .addOnSuccessListener { faces ->
                 if (faces.isNotEmpty()) {
                     val face = faces.first()
+                    val left = face.leftEyeOpenProbability ?: 0f
+                    val right = face.rightEyeOpenProbability ?: 0f
 
-                    val leftEyeOpenProb = face.leftEyeOpenProbability ?: 0f
-                    val rightEyeOpenProb = face.rightEyeOpenProbability ?: 0f
-                    val smileProb = face.smilingProbability ?: 0f
-
-//                    Log.d("FaceDetection", "Left Eye: $leftEyeOpenProb, Right Eye: $rightEyeOpenProb")
-
-                    if (leftEyeOpenProb < 0.3 && rightEyeOpenProb < 0.3) {
-                        exoPlayer.pause()
-                        Toast.makeText(context, "hello dono ankhe band hai ya dur ho", Toast.LENGTH_SHORT).show()
-                    }
-                    if (smileProb>0.7) {
+                    val eyeOpen = left > 0.3f || right > 0.3f
+                    if (eyeOpen) {
+                        onEyeOpen(true)
                         exoPlayer.play()
-
                     }
-                } else {
-//                    Log.d("FaceDetection", "No face detected")
-                    exoPlayer.pause()
                 }
             }
             .addOnCompleteListener {
-                imageProxy.close() // Important: Close ImageProxy
+                imageProxy.close()
             }
     } else {
         imageProxy.close()
-    }
-
-}
-// deepseek logic implementation
-//@Composable
-//fun FaceDetectionToggle(
-//    exoPlayer: ExoPlayer,
-//    modifier: Modifier = Modifier
-//) {
-//    val context = LocalContext.current
-//    var userDetection by rememberSaveable { mutableStateOf(false) }
-//
-//    IconButton(
-//        onClick = { userDetection = !userDetection },
-//        modifier = modifier.size(40.dp)
-//    ) {
-//        Icon(
-//            painter = painterResource(
-//                id = if (userDetection) {
-//                    R.drawable.baseline_visibility_24
-//                } else {
-//                    R.drawable.baseline_visibility_off_24
-//                }
-//            ),
-//            contentDescription = "User Face Detection",
-//            tint = Color.White
-//        )
-//    }
-//
-//    if (userDetection && exoPlayer.isPlaying) {
-//        OptimizedCameraAnalysis(context, exoPlayer)
-//    }
-//}
-
-@Composable
-fun OptimizedCameraAnalysis(context: Context, exoPlayer: ExoPlayer) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
-
-    // Detection state management
-    var detectionStartTime by remember { mutableStateOf(LocalTime.now()) }
-    var isDetectionWindowActive by remember { mutableStateOf(false) }
-    var eyesClosedDuration by remember { mutableStateOf(0L) } // in seconds
-
-    // Schedule periodic detection windows
-    LaunchedEffect(Unit) {
-        while (true) {
-            // Wait for 50 seconds (idle period)
-            delay(50_000L)
-
-            // Start 10-second detection window
-            isDetectionWindowActive = true
-            detectionStartTime = LocalTime.now()
-            eyesClosedDuration = 0
-
-            // Run detection for 10 seconds
-            delay(10_000L)
-
-            // End detection window
-            isDetectionWindowActive = false
-
-            // Check if eyes were closed for entire window
-            if (eyesClosedDuration >= 10) {
-                exoPlayer.pause()
-                // Show toast or other notification
-            }
-        }
-    }
-
-    // Camera and analysis lifecycle
-    LaunchedEffect(isDetectionWindowActive) {
-        if (isDetectionWindowActive) {
-            // Start camera only during active detection windows
-            val provider = cameraProviderFuture.get()
-            cameraProvider = provider
-
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    it.setAnalyzer(
-                        Executors.newSingleThreadExecutor(),
-                        FaceAnalyzer { face ->
-                            handleFaceDetectionResult(face, exoPlayer, context) {
-                                eyesClosedDuration++ // Increment closed duration
-                            }
-                        }
-                    )
-                }
-            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-
-            try {
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    imageAnalysis
-                )
-            } catch (e: Exception) {
-                Log.e("CameraAnalysis", "Failed to bind use cases", e)
-            }
-        } else {
-            // Release camera during idle periods
-            cameraProvider?.unbindAll()
-            cameraProvider = null
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            cameraProvider?.unbindAll()
-        }
-    }
-
-    // Show camera preview only during detection windows
-}
-
-private fun handleFaceDetectionResult(
-    face: Face,
-    exoPlayer: ExoPlayer,
-    context: Context,
-    onEyesClosed: () -> Unit
-) {
-    val leftEyeOpenProb = face.leftEyeOpenProbability ?: 0f
-    val rightEyeOpenProb = face.rightEyeOpenProbability ?: 0f
-    val smileProb = face.smilingProbability ?: 0f
-
-    when {
-        // Both eyes closed
-        leftEyeOpenProb < 0.3 && rightEyeOpenProb < 0.3 -> {
-            exoPlayer.pause()
-            onEyesClosed()
-        }
-        // Smiling detected
-        smileProb > 0.7 -> {
-            exoPlayer.play()
-        }
-        // Eyes open but not smiling - no action
-    }
-}
-
-private class FaceAnalyzer(
-    private val onFaceDetected: (Face) -> Unit
-) : ImageAnalysis.Analyzer {
-    private val detector = FaceDetection.getClient(
-        FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .build()
-    )
-
-    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
-    override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage != null) {
-            val image = InputImage.fromMediaImage(
-                mediaImage,
-                imageProxy.imageInfo.rotationDegrees
-            )
-
-            detector.process(image)
-                .addOnSuccessListener { faces ->
-                    if (faces.isNotEmpty()) {
-                        onFaceDetected(faces.first())
-                    }
-                }
-                .addOnFailureListener { e ->
-                    Log.e("FaceAnalyzer", "Face detection failed", e)
-                }
-                .addOnCompleteListener {
-                    imageProxy.close()
-                }
-        } else {
-            imageProxy.close()
-        }
     }
 }
 fun formatDuration(milliseconds: Long): String {
@@ -744,25 +586,3 @@ fun formatDuration(milliseconds: Long): String {
         String.format("%02d:%02d", minutes, seconds)
     }
 }
-//@RequiresApi(Build.VERSION_CODES.S)
-//@Preview(showBackground = true)
-//@Composable
-//private fun video() {
-//    Row{
-//        Text(formatDuration(0.toLong()))
-//        Slider(modifier = Modifier
-//            .weight(1f)
-//            .fillMaxWidth(0.8f),
-//            colors = SliderDefaults.colors(
-//                thumbColor = PrimaryRed,
-//                activeTrackColor = PrimaryRed,
-//                inactiveTrackColor = LightGray4
-//            ),
-//            value = 0.3f,
-//            onValueChange = { newValue ->
-////                exoplayer.seekTo((newValue * duration).toLong())
-//            }
-//        )
-//        Text(formatDuration(0.toLong()))
-//    }
-//}

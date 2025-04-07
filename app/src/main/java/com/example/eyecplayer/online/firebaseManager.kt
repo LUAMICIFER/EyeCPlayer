@@ -48,5 +48,20 @@ object FirebaseManager {
                 onResult(emptyList()) // Return an empty list on failure
             }
     }
+    fun getMovieById(movieId: String, onResult: (Movie?) -> Unit) {
+        db.collection("movies").document(movieId).get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val movie = document.toObject(Movie::class.java)
+                    onResult(movie)
+                } else {
+                    onResult(null)
+                }
+            }
+            .addOnFailureListener {
+                onResult(null)
+            }
+    }
+
 
 }

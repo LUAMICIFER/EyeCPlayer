@@ -96,4 +96,12 @@ dependencies {
     implementation ("androidx.compose.foundation:foundation:1.6.0")
 // OR if using older versions (Accompanist Pager)
     implementation ("com.google.accompanist:accompanist-pager:0.32.0")
+    //@SerializedName
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    //Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.2.0")
+    implementation("com.airbnb.android:lottie-compose:6.4.0")
 }

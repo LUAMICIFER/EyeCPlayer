@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.eyecplayer.ui.theme.EyeCPlayerTheme
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -26,11 +27,14 @@ import androidx.compose.runtime.*
 import android.net.Uri
 import android.provider.Settings
 import android.view.View
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -107,48 +111,67 @@ class MainActivity : ComponentActivity() {
 fun PermissionScreen(navController: NavController) {
     val permissions = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            listOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.CAMERA)
+            listOf(
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.CAMERA
+            )
         } else {
-            listOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CAMERA)
+            listOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.CAMERA
+            )
         }
     }
 
     val multiplePermissionsState = rememberMultiplePermissionsState(permissions = permissions)
     val context = LocalContext.current
+    var hasNavigated by remember { mutableStateOf(false) }
 
     LaunchedEffect(multiplePermissionsState.allPermissionsGranted) {
-        if (multiplePermissionsState.allPermissionsGranted) {
-            navController.navigate(Routes.Folders){
-                popUpTo(Routes.permission) { inclusive = true } // Avoid back navigation to permission screen
+        if (multiplePermissionsState.allPermissionsGranted && !hasNavigated) {
+            hasNavigated = true
+            navController.navigate(Routes.Folders) {
+                popUpTo(Routes.permission) { inclusive = true }
             }
         }
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         when {
             multiplePermissionsState.allPermissionsGranted -> {
-//                Text("Permission Granted! Redirecting...")
-//                navController.navigate(Routes.Folders){popUpTo(Routes.permission){inclusive = true} }
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(8.dp))
+//                Text("Permission granted. Redirecting...")
             }
 
             multiplePermissionsState.permissions.any { it.status.shouldShowRationale } -> {
-                Text("Please grant storage & camera permission to enjoy seamless video playback.")
-                Button(onClick = { multiplePermissionsState.launchMultiplePermissionRequest() }) {
+                Text("Please grant storage & camera permissions to enjoy the app.")
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = {
+                    multiplePermissionsState.launchMultiplePermissionRequest()
+                }) {
                     Text("Grant Permission")
                 }
             }
 
             else -> {
-                Text("Storage permission is required to show videos.")
+                Text("Permissions are denied. Please enable them in App Settings.")
+                Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", context.packageName, null)
                     }
-                    context.startActivity(intent)
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(context, "Unable to open settings", Toast.LENGTH_SHORT).show()
+                    }
                 }) {
                     Text("Open App Settings")
                 }

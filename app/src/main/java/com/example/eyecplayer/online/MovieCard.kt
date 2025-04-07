@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.eyecplayer.ui.theme.DarkGray1
 import com.example.eyecplayer.ui.theme.DarkGray2
@@ -39,13 +40,15 @@ import com.example.eyecplayer.ui.theme.PrimaryRed
 import com.example.eyecplayer.ui.theme.White
 
 @Composable
-fun MovieCard(imageUrl :String,movieName :String,quality :String,duration :String,year : String,genre :String){
+fun MovieCard(navController: NavController, imdb : String, imageUrl :String, movieName :String, quality :String, duration :String, year : String, genre :String){
     Box(
         Modifier.padding(8.dp).graphicsLayer {
             shadowElevation = 8.dp.toPx()
             shape = RoundedCornerShape(8.dp)
         }
-            .clickable { TODO("add navigation route to the movie detail page with the imdbid only") }
+            .clickable {
+                navController.navigate("DETAILPAGE/${imdb}")
+            }
             .clip(RoundedCornerShape(8.dp))
             .height(205.dp)
             .width(160.dp)){
@@ -95,8 +98,8 @@ fun MovieCard(imageUrl :String,movieName :String,quality :String,duration :Strin
 
     }
 }
-@Preview
-@Composable
-fun Hello(modifier: Modifier = Modifier) {
-    MovieCard("https://terrypiercebooks.com/wp-content/uploads/2016/09/cropped-background-16-9.png","Movie Title","Hd","32","2012","Romance")
-}
+//@Preview
+//@Composable
+//fun Hello(modifier: Modifier = Modifier) {
+//    MovieCard("https://terrypiercebooks.com/wp-content/uploads/2016/09/cropped-background-16-9.png","Movie Title","Hd","32","2012","Romance")
+//}

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -94,103 +95,27 @@ fun HomeScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("HOME") { homeScreenui(navController) } // Fix recursion
-            composable("CATEGORY") { CategoryScreen(navController) }
+            composable("CATEGORY/{genere}") {
+                val genre = it.arguments?.getString("genere")
+                CategoryScreen(navController, selected = genre?:"") }
             composable("WATCHLIST") { WatchlistScreen(navController) }
             composable("PROFILE") { ProfileScreen(navController) }
+            composable("DETAILPAGE/{id}") {
+                val Id = it.arguments?.getString("id")
+                DescriptionScreen(navController,Id?:"tt1981128")}
+            composable("VIDEOPLAYER/{id}"){
+                val Id = it.arguments?.getString("id")
+                VideoPlayerScreen(navController=navController, movieId =Id?:"tt1981128")
+            }
 
         }
     }
 }
-//@Composable
-//fun homeScreenui(navController: NavController) {
-//    val db = Firebase.firestore
-//    var movieData by remember { mutableStateOf<String?>(null) }
-//
-//    LaunchedEffect(Unit) {
-//        db.collection("movies").document("tt1375666").get()
-//            .addOnSuccessListener { document ->
-//                if (document != null && document.exists()) {
-//                    movieData = document.getString("title") ?: "Unknown"
-//                }
-//            }
-//            .addOnFailureListener { e ->
-//                Log.e("Firestore", "Error fetching document", e)
-//            }
-//    }
-//
-//    Box(
-//        Modifier
-//            .background(color = if (isSystemInDarkTheme()) Color.Black else White)
-//            .fillMaxSize()
-//            .padding(16.dp)
-//    ) {
-//        if (movieData == null) {
-//            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-//        } else {
-//            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                Text(text = "Movie: $movieData", color = Color.White)
-//            }
-//        }
-//    }
-//}
-
-//
-//@Composable
-//fun homeScreenui(navController: NavController) {
-//    val db = Firebase.firestore
-//    Firebase.firestore.firestoreSettings = firestoreSettings {
-//        setHost("firestore.googleapis.com")
-//        setSslEnabled(true)
-//        setPersistenceEnabled(true)
-//    }
-//
-//    var recentMovies by remember { mutableStateOf<List<Movie>>(emptyList()) }
-//    var actionMovies by remember { mutableStateOf<List<Movie>>(emptyList()) }
-//    LaunchedEffect(Unit) {
-//        recentMovies= FirebaseManager.getRecentMovies()
-//    }
-//    Box(Modifier
-//        .fillMaxSize()
-//        .background(if (isSystemInDarkTheme()) Color.Black else White)){
-//        Column(Modifier.padding(16.dp)) {
-//            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-//                Image(
-//                    painter = painterResource(id = R.drawable.baseline_play_arrow_24),
-//                    contentDescription = "Icon",Modifier.size(48.dp)
-//                )
-//                IconButton(
-//                    onClick = { TODO() },Modifier.size(24.dp)
-//                ) {Image(painter = painterResource(id = R.drawable.search), contentDescription = "search Icon") }
-//            }
-//
-//            LazyColumn {
-//                if (!recentMovies.isEmpty()) {
-//                    item {
-//                        hero(recentMovies)
-//                    }
-//                    item {
-//                        lazyRowWheader("Recently Added", recentMovies)
-//                    }
-//                }
-//                item {
-//                    LaunchedEffect(Unit) {
-//                        FirebaseManager.getRecentMovies { fetchedMovies ->
-//                            actionMovies = fetchedMovies
-//                        }
-//                    }
-//                    if(!actionMovies.isEmpty())
-//                    lazyRowWheader("action", actionMovies)
-//                }
-//
-//            }
-//        }
-//    }
-//
-//}
 @Composable
 fun homeScreenui(navController: NavController) {
-    val db = Firebase.firestore
-    Firebase.firestore.firestoreSettings = firestoreSettings {
+//    val navController = rememberNavController()
+//    NavHost(navController = navController, startDestination =)
+    Firebase.firestore.firestoreSettings = firestoreSettings { // to increase the time of runout
         setHost("firestore.googleapis.com")
         setSslEnabled(true)
         setPersistenceEnabled(true)
@@ -225,24 +150,19 @@ fun homeScreenui(navController: NavController) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.baseline_play_arrow_24),
-                    contentDescription = "Icon", Modifier.size(48.dp)
-                )
+                Icon(painter = painterResource( id =R.drawable.baseline_play_arrow_24), contentDescription = "Icon",
+                    Modifier.size(48.dp))
                 IconButton(
                     onClick = { TODO() }, Modifier.size(24.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.search),
-                        contentDescription = "search Icon"
-                    )
+                    Icon(painter = painterResource( id =R.drawable.baseline_play_arrow_24), contentDescription = "Icon")
                 }
             }
 
             LazyColumn(state = listState) {
                 if (recentMovies.isNotEmpty()) {
                     item { hero(recentMovies) }
-                    item { lazyRowWheader("Recently Added", recentMovies) }
+                    item { lazyRowWheader(navController,"Recently Added", recentMovies) }
                 }
 
                 // Load each genre dynamically
@@ -262,9 +182,8 @@ fun homeScreenui(navController: NavController) {
                                 genreMovies = genreMovies + (genre to movies)
                             }
                         }
-
                         if (genreMovies[genre]?.isNotEmpty() == true) {
-                            lazyRowWheader(genre.capitalize(), genreMovies[genre]!!)
+                            lazyRowWheader(navController,genre.capitalize(), genreMovies[genre]!!)
                         }
                     }
                 }
