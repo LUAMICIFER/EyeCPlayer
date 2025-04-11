@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +101,14 @@ fun ShowAllFoldersContainingVideo(navController: NavController){
                 .background(if (isSystemInDarkTheme()) Color.Black else Color.White)
                 .padding(paddingValues)
                 .padding(16.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, dragAmount ->
+                        change.consumeAllChanges()
+                        if (dragAmount < -50) { // Swiping left
+                            navController.navigate(Routes.online) // change route accordingly
+                        }
+                    }
+                }
         ) {
             Text(text = "Folders", style = MaterialTheme.typography.displayLarge)
 

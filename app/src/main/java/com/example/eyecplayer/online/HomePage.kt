@@ -43,6 +43,8 @@ import com.example.eyecplayer.ui.theme.White
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.eyecplayer.vp.LVideoPlayer
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestoreSettings
 
@@ -83,11 +85,22 @@ import kotlinx.coroutines.launch
 //    }
 //}
 @Composable
-fun HomeScreen() {
+fun HomeScreen(a: NavController) {
     val navController = rememberNavController()
+    // Track current back stack entry
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Define routes where bottom bar should be hidden
+    val hideBottomBarRoutes = listOf("VIDEOPLAYER/{id}")
 
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController) }
+        bottomBar = {
+            if (currentRoute !in hideBottomBarRoutes &&
+                !currentRoute.orEmpty().startsWith("VIDEOPLAYER/")) {
+                BottomNavigationBar(navController)
+            }
+        }
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -105,7 +118,8 @@ fun HomeScreen() {
                 DescriptionScreen(navController,Id?:"tt1981128")}
             composable("VIDEOPLAYER/{id}"){
                 val Id = it.arguments?.getString("id")
-                VideoPlayerScreen(navController=navController, movieId =Id?:"tt1981128")
+//                VideoPlayerScreen(navController=navController, movieId =Id?:"tt1981128")
+                LVideoPlayer(source = Id?:"tt1981128",navController=navController)
             }
 
         }
@@ -207,5 +221,5 @@ fun WatchlistScreen(navController: NavController) {
 @Preview(showBackground = true)
 @Composable
 private fun homePagepreview() {
-    HomeScreen()
+    HomeScreen(rememberNavController())
 }

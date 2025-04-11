@@ -5,5 +5,5 @@ object Routes {
     var Folders = "ShowAllFoldersContainingVideoScreen"
     var Videos = "ShowAllVideosOfFolder"
     var player = "VideoPlayer"
-
+    var online = "Online"
 }

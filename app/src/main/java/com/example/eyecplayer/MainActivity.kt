@@ -40,6 +40,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.eyecplayer.online.HomeScreen
+import com.example.eyecplayer.vp.LVideoPlayer
 import com.google.accompanist.permissions.*
 import kotlin.time.Duration
 val time = 500 // for the animation of navigation
@@ -59,7 +61,9 @@ class MainActivity : ComponentActivity() {
                         NavHost(navController = navController, startDestination = Routes.player + "/${(Uri.encode(uri.toString()))}") {
                             composable(Routes.player + "/{videoUri}") { backStackEntry ->
                                 val videoUri = backStackEntry.arguments?.getString("videoUri")
-                                VideoPlayer(navController, videoUri ?: "/")
+//                                VideoPlayer(navController, videoUri ?: "/")
+                                LVideoPlayer(navController=navController, source =  videoUri ?: "/")
+
                             }
                         }
                     } else {
@@ -95,7 +99,13 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(Routes.player + "/{videoUri}") {
                                 val videoUri = it.arguments?.getString("videoUri")
-                                VideoPlayer(navController, videoUri ?: "/")
+//                                VideoPlayer(navController, videoUri ?: "/")
+//                                val uri = Uri.parse(Uri.decode(videoUri))
+                                LVideoPlayer(navController=navController, source =  videoUri ?: "/")
+
+                            }
+                            composable (Routes.online){
+                                HomeScreen(navController)
                             }
                         }
                     }

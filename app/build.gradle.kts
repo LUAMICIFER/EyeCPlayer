@@ -14,7 +14,14 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
+        splits {
+            abi {
+                isEnable = true
+                reset()
+                include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+                isUniversalApk = false // <-- disables fat APK
+            }
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -104,4 +111,6 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.2.0")
     implementation("com.airbnb.android:lottie-compose:6.4.0")
+    //vlc
+    implementation("org.videolan.android:libvlc-all:3.5.1")
 }
